@@ -1,0 +1,569 @@
+<!doctype html>
+<!-- OutcomeLens v0.1 | MIT License | Copyright (c) 2026 Muhammad Shamel bin Mohamad | see the LICENSE file -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OutcomeLens</title>
+<meta name="description" content="Open, offline, auditable learning analytics dashboard: learning-outcome attainment, assessment quality and early warning from any gradebook CSV. Runs entirely in the browser.">
+<style>
+:root{
+  color-scheme: light;
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10); --wash:rgba(11,11,11,.05);
+  --s1:#2a78d6; --s1-lo:#9ec5f4; --s2:#eb6834;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-text:#006300;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10); --wash:rgba(255,255,255,.06);
+    --s1:#3987e5; --s1-lo:#1c5cab; --s2:#d95926; --good-text:#0ca30c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#f0efec; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10); --wash:rgba(255,255,255,.06);
+  --s1:#3987e5; --s1-lo:#1c5cab; --s2:#d95926; --good-text:#0ca30c;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--page);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+header.top{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--ink2);margin-top:2px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.btn,select,input[type=number],input[type=text],input[type=search]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:6px 12px}
+button,.btn{cursor:pointer}
+button:hover,.btn:hover{background:var(--wash)}
+button.primary{background:var(--s1);border-color:var(--s1);color:#fff}
+button.primary:hover{filter:brightness(1.08);background:var(--s1)}
+button[aria-pressed=true]{background:var(--wash);border-color:var(--ink2)}
+:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+label.chk{display:inline-flex;gap:6px;align-items:center;color:var(--ink2);font-size:13px}
+nav.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--grid);margin:6px 0 16px}
+nav.tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:8px 14px;color:var(--ink2)}
+nav.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--s1);font-weight:600}
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:12px;padding:16px}
+.card h2{font-size:15px;margin:0 0 2px}
+.card .sub{color:var(--ink2);font-size:13px;margin:0 0 10px}
+.card .head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.tile .v{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.tile .l{color:var(--ink2);font-size:13px;margin-top:4px}
+.tile .n{color:var(--muted);font-size:12px;margin-top:2px}
+.note{background:var(--wash);border-radius:10px;padding:10px 12px;color:var(--ink2);font-size:13px}
+.note b{color:var(--ink)}
+svg{display:block;max-width:100%;height:auto}
+svg text{fill:var(--ink2);font:12px system-ui,sans-serif}
+svg .t1{fill:var(--ink)}
+svg .mu{fill:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--grid);vertical-align:top}
+th{color:var(--ink2);font-weight:600;white-space:nowrap}
+th.s{cursor:pointer}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+.chip{display:inline-flex;gap:5px;align-items:center;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--ring);white-space:nowrap}
+.chip i{font-style:normal;font-weight:700}
+.chip.risk i{color:var(--crit)} .chip.watch i{color:#b57e00} .chip.ok i{color:var(--good-text)}
+.meter{height:8px;border-radius:4px;background:var(--grid);overflow:hidden;min-width:70px}
+.meter span{display:block;height:100%;background:var(--s1);border-radius:4px}
+.flags li{margin:4px 0}
+.hide{display:none!important}
+#tip{position:fixed;z-index:9;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12px;padding:5px 8px;border-radius:6px;max-width:260px;display:none}
+.tab{display:none}.tab.on{display:block}
+.setup td input[type=text]{width:100%;min-width:110px}
+.setup td input[type=number]{width:74px}
+.setup td input.sm{width:64px}
+details summary{cursor:pointer;color:var(--ink2)}
+.seg{display:inline-flex;border:1px solid var(--ring);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:3px 10px;font-size:12px;background:none}
+.seg button[aria-pressed=true]{background:var(--wash);font-weight:600}
+.foot{color:var(--muted);font-size:12px;margin-top:22px}
+@media print{
+  header .tools,nav.tabs,.seg,.noprint,button{display:none!important}
+  .tab{display:block!important;break-inside:avoid}
+  body{background:#fff}
+  .card{break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <h1>OutcomeLens<small id="course">Open, offline, auditable learning analytics. Runs in your browser; no data leaves this page.</small></h1>
+  <div class="tools noprint">
+    <button class="primary" id="btnLoad">Open gradebook CSV</button>
+    <input type="file" id="file" accept=".csv,text/csv,.txt" class="hide">
+    <button id="btnDemo">Load demo cohort</button>
+    <button id="btnSample">Sample CSV</button>
+    <label class="chk"><input type="checkbox" id="mask" checked> Mask IDs</label>
+    <button id="btnTheme" aria-label="Toggle light and dark theme">Theme</button>
+  </div>
+</header>
+
+<div class="note noprint" id="privacy"><b>Privacy:</b> the file is read by this page only; nothing is uploaded or stored. Use the demo cohort (synthetic) for screenshots and videos. Student IDs are masked by default.</div>
+
+<nav class="tabs" role="tablist" aria-label="Dashboard sections" id="tabs"></nav>
+
+<section class="tab" id="t-overview"></section>
+<section class="tab" id="t-attain"></section>
+<section class="tab" id="t-quality"></section>
+<section class="tab" id="t-warn"></section>
+<section class="tab" id="t-students"></section>
+<section class="tab" id="t-setup"></section>
+
+<p class="foot">OutcomeLens v0.1 &middot; attainment is computed from the marks and the outcome tags you confirm in Setup; forecasts are statistical estimates for early support, not grades. Draft feedback must be edited by the lecturer before use.</p>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+"use strict";
+/* ---------- small helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (v, d = 1) => (v === null || v === undefined || isNaN(v)) ? "–" : v.toFixed(d);
+const sum = a => a.reduce((x, y) => x + y, 0);
+const mean = a => { const b = a.filter(v => !isNaN(v)); return b.length ? sum(b) / b.length : NaN; };
+const sd = a => { const b = a.filter(v => !isNaN(v)); if (b.length < 2) return NaN; const m = mean(b); return Math.sqrt(sum(b.map(v => (v - m) ** 2)) / (b.length - 1)); };
+const median = a => { const b = a.filter(v => !isNaN(v)).sort((x, y) => x - y); if (!b.length) return NaN; const k = b.length >> 1; return b.length % 2 ? b[k] : (b[k - 1] + b[k]) / 2; };
+function corr(x, y) {
+  const p = []; for (let i = 0; i < x.length; i++) if (!isNaN(x[i]) && !isNaN(y[i])) p.push([x[i], y[i]]);
+  if (p.length < 3) return NaN;
+  const mx = mean(p.map(q => q[0])), my = mean(p.map(q => q[1]));
+  let sxy = 0, sxx = 0, syy = 0;
+  p.forEach(([a, b]) => { sxy += (a - mx) * (b - my); sxx += (a - mx) ** 2; syy += (b - my) ** 2; });
+  return sxx && syy ? sxy / Math.sqrt(sxx * syy) : NaN;
+}
+const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+
+/* ---------- state ---------- */
+const state = {
+  title: "", students: [], comps: [], target: 60, hist: null, mask: true, tab: "overview",
+  sortKey: "risk", sortDir: -1, q: "", selected: -1, synthetic: false, view: {}
+};
+
+/* ---------- CSV ---------- */
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const first = text.split(/\r?\n/, 1)[0];
+  const cnt = d => (first.split(d).length - 1);
+  const delim = [",", ";", "\t"].sort((a, b) => cnt(b) - cnt(a))[0];
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === delim) { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return { rows: rows.filter(r => r.some(c => c.trim() !== "")), delim };
+}
+const num = (s, delim) => { if (s === undefined) return NaN; s = String(s).trim(); if (s === "" || s === "-") return NaN; if (delim !== ",") s = s.replace(",", "."); const v = Number(s); return isFinite(v) ? v : NaN; };
+const niceMax = m => m <= 0 ? 1 : (m <= 5 ? Math.ceil(m) : Math.ceil(m / 5) * 5);
+
+function ingest(text, title) {
+  const { rows, delim } = parseCSV(text);
+  if (rows.length < 3) throw new Error("The file needs a header row and at least two students.");
+  const hdr = rows[0].map(h => h.trim()), body = rows.slice(1);
+  let idCol = hdr.findIndex(h => /matri[kx]|^id( number)?$|student ?id|^no\.?$/i.test(h)); if (idCol < 0) idCol = 0;
+  const SKIP = /e-?mail|first ?name|sur ?name|^name$|^nama|institution|department|downloaded|^group|total|jumlah|^grade|^gred/i;
+  const comps = [];
+  hdr.forEach((h, j) => {
+    if (j === idCol) return;
+    const vals = body.map(r => num(r[j], delim)), ok = vals.filter(v => !isNaN(v)).length;
+    if (ok >= body.length * 0.5 && !SKIP.test(h)) {
+      const mx = Math.max(...vals.filter(v => !isNaN(v)));
+      const clo = (h.match(/CLO\s*(\d+)/i) || [])[1], plo = (h.match(/PLO\s*(\d+)/i) || [])[1];
+      comps.push({ col: j, name: h.replace(/\(.*?\)/g, "").replace(/^PENILAIAN\s*\d+\s*\|\s*/i, "").trim() || h, max: niceMax(mx), clo: clo ? "CLO" + clo : "", plo: plo ? "PLO" + plo : "", on: true, early: false });
+    }
+  });
+  if (comps.length < 2) throw new Error("Could not find at least two numeric assessment columns.");
+  comps.forEach((c, i) => { c.idx = i; c.early = i < Math.ceil(comps.length / 2); });
+  state.students = body.map((r, i) => ({ id: (r[idCol] || ("Row " + (i + 1))).trim(), marks: comps.map(c => num(r[c.col], delim)) }));
+  state.comps = comps; state.title = title; state.hist = null; state.selected = -1;
+}
+
+/* ---------- demo cohort (synthetic, seeded) ---------- */
+function makeDemo(n = 48, seed = 2026) {
+  const R = rng(seed), gauss = () => { let u = 0, v = 0; while (!u) u = R(); while (!v) v = R(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+  const defs = [
+    { name: "Quiz", max: 5, clo: "CLO1", plo: "PLO1", load: .70, mu: .87, s: .10 },
+    { name: "Mid-term exam", max: 20, clo: "CLO1", plo: "PLO1", load: .90, mu: .72, s: .12 },
+    { name: "Lab report", max: 10, clo: "CLO3", plo: "PLO3", load: .80, mu: .50, s: .16 },
+    { name: "Lab test", max: 10, clo: "CLO3", plo: "PLO3", load: .60, mu: .62, s: .08 },
+    { name: "Written report", max: 15, clo: "CLO2", plo: "PLO2", load: .75, mu: .77, s: .12 }
+  ];
+  const st = [];
+  for (let i = 0; i < n; i++) {
+    const z = gauss(), id = "D" + String(1001 + i);
+    const marks = defs.map((d, k) => {
+      let p = d.mu + d.s * (d.load * z + Math.sqrt(1 - d.load ** 2) * gauss());
+      p = Math.min(1, Math.max(0.15, p));
+      let m = Math.round(p * d.max * 20) / 20; return Math.min(d.max, m);
+    });
+    st.push({ id, marks });
+  }
+  st[7].marks[2] = 0; st[19].marks[4] = NaN;             // one non-submission, one missing mark
+  st[11].marks[1] = Math.round(0.31 * 20 * 20) / 20;      // a poor mid-term
+  state.comps = defs.map((d, i) => ({ idx: i, col: i, name: d.name, max: d.max, clo: d.clo, plo: d.plo, on: true, early: i < 2 }));
+  state.students = st; state.title = "DEMO101 (synthetic cohort, " + n + " students)"; state.hist = null; state.selected = -1; state.synthetic = true;
+}
+
+/* ---------- analytics ---------- */
+function rankInfo() {
+  const C = state.comps.filter(c => c.on);
+  return C;
+}
+function compute() {
+  const C = state.comps.filter(c => c.on), S = state.students, n = S.length, T = state.target;
+  const P = S.map(s => C.map(c => { const v = s.marks[c.idx]; return isNaN(v) ? NaN : v / c.max * 100; }));
+  const caSoFar = S.map(s => { let m = 0, mx = 0; C.forEach(c => { const v = s.marks[c.idx]; if (!isNaN(v)) { m += v; mx += c.max; } }); return mx ? m / mx * 100 : NaN; });
+  const totalMax = sum(C.map(c => c.max));
+  const ca = caSoFar.filter(v => !isNaN(v));
+  const out = { C, S, n, P, caSoFar, totalMax, T };
+  out.mean = mean(ca); out.sd = sd(ca); out.median = median(ca);
+  out.aboveT = ca.filter(v => v >= T).length; out.belowT = ca.filter(v => v < T).length;
+  // per component
+  out.comp = C.map((c, j) => {
+    const col = P.map(r => r[j]), v = col.filter(x => !isNaN(x));
+    const others = P.map(r => mean(r.filter((x, k) => k !== j)));
+    const order = caSoFar.map((x, i) => [x, i]).filter(a => !isNaN(a[0])).sort((a, b) => b[0] - a[0]);
+    const k = Math.max(1, Math.ceil(order.length * 0.27));
+    const up = mean(order.slice(0, k).map(a => P[a[1]][j])), lo = mean(order.slice(-k).map(a => P[a[1]][j]));
+    return { c, mean: mean(v), sd: sd(v), pctT: v.length ? v.filter(x => x >= T).length / v.length * 100 : NaN, missing: n - v.length, zeros: col.filter(x => x === 0).length, r: C.length > 2 ? corr(col, others) : NaN, D: (up - lo) / 100 };
+  });
+  // by group
+  const group = key => {
+    const names = [...new Set(C.map(c => c[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    return names.map(g => {
+      const cs = C.filter(c => c[key] === g), per = S.map(s => { let m = 0, mx = 0; cs.forEach(c => { const v = s.marks[c.idx]; if (!isNaN(v)) { m += v; mx += c.max; } }); return mx ? m / mx * 100 : NaN; }).filter(x => !isNaN(x));
+      return { g, comps: cs.map(c => c.name), weight: sum(cs.map(c => c.max)), mean: mean(per), pctT: per.length ? per.filter(x => x >= T).length / per.length * 100 : NaN };
+    });
+  };
+  out.clo = group("clo"); out.plo = group("plo");
+  out.flags = cqiFlags(out);
+  out.model = buildModel(out);
+  out.status = S.map((s, i) => statusOf(out, i));
+  return out;
+}
+
+function cqiFlags(o) {
+  const f = [], T = o.T;
+  o.comp.forEach(x => {
+    const nm = x.c.name;
+    if (x.mean >= 85) f.push(`${nm}: mean ${fmt(x.mean)}% (ceiling). It separates few students; consider harder items or a lower weight.`);
+    if (x.mean < 50) f.push(`${nm}: mean ${fmt(x.mean)}%, below half marks. Review item difficulty and the teaching that led to it.`);
+    if (x.sd < 8 && x.mean < 85) f.push(`${nm}: spread is small (SD ${fmt(x.sd)} points of %). Marks are bunched; check the rubric levels.`);
+    if (!isNaN(x.r) && x.r < 0.15) f.push(`${nm}: corrected item-total r = ${fmt(x.r, 2)}. It barely tracks overall performance; check validity of the task.`);
+    if (x.missing) f.push(`${nm}: ${x.missing} missing mark(s).`);
+    if (x.zeros) f.push(`${nm}: ${x.zeros} zero mark(s). Confirm non-submission versus a recording error.`);
+  });
+  o.clo.forEach(x => { if (x.mean < T) f.push(`${x.g}: attainment ${fmt(x.mean)}% is below the ${T}% target (${x.comps.join(", ")}).`); });
+  o.plo.forEach(x => { if (x.mean < T) f.push(`${x.g}: attainment ${fmt(x.mean)}% is below the ${T}% target.`); });
+  if (!f.length) f.push("No assessment-quality or attainment flags at the current thresholds.");
+  return f;
+}
+
+/* ridge regression (closed form) */
+function solveLin(A, b) {
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let i = 0; i < n; i++) {
+    let p = i; for (let r = i + 1; r < n; r++) if (Math.abs(M[r][i]) > Math.abs(M[p][i])) p = r;
+    [M[i], M[p]] = [M[p], M[i]];
+    const d = M[i][i] || 1e-12;
+    for (let c = i; c <= n; c++) M[i][c] /= d;
+    for (let r = 0; r < n; r++) if (r !== i) { const f = M[r][i]; for (let c = i; c <= n; c++) M[r][c] -= f * M[i][c]; }
+  }
+  return M.map(r => r[n]);
+}
+function ridgeFit(X, y, lam) {
+  const n = X.length, p = X[0].length, mu = [], sg = [];
+  for (let j = 0; j < p; j++) { const col = X.map(r => r[j]); mu.push(mean(col)); sg.push(sd(col) || 1); }
+  const Z = X.map(r => r.map((v, j) => (v - mu[j]) / sg[j])), yb = mean(y), yc = y.map(v => v - yb);
+  const A = Array.from({ length: p }, (_, a) => Array.from({ length: p }, (_, b) => sum(Z.map(r => r[a] * r[b])) + (a === b ? lam : 0)));
+  const bv = Array.from({ length: p }, (_, a) => sum(Z.map((r, i) => r[a] * yc[i])));
+  return { mu, sg, yb, w: solveLin(A, bv) };
+}
+const ridgePred = (m, x) => m.yb + sum(m.w.map((w, j) => w * (x[j] - m.mu[j]) / m.sg[j]));
+
+function buildModel(o) {
+  const C = o.C, E = C.filter(c => c.early), L = C.filter(c => !c.early);
+  const res = { ok: false, reason: "", E, L, mode: "", skill: NaN };
+  if (E.length < 1 || L.length < 1) { res.reason = "Mark at least one component as known at the checkpoint and leave at least one as later."; return res; }
+  const lam = 2, laterMax = sum(L.map(c => c.max)), earlyMax = sum(E.map(c => c.max));
+  const feat = (stu, cols) => cols.map(c => { const v = stu.marks[c.idx]; return isNaN(v) ? NaN : v / c.max * 100; });
+  const later = stu => { const v = L.map(c => stu.marks[c.idx]); return v.some(isNaN) ? NaN : sum(v) / laterMax * 100; };
+  const impute = (rows, ref) => { const mu = E.map((_, j) => mean(ref.map(r => r[j]))); return rows.map(r => r.map((v, j) => isNaN(v) ? mu[j] : v)); };
+  let trainStu, mode;
+  if (state.hist) {
+    // history cohort supplies the labels; match components by name
+    const hm = state.hist.comps; const idxOf = c => hm.findIndex(h => h.name.toLowerCase() === c.name.toLowerCase());
+    if (E.concat(L).some(c => idxOf(c) < 0)) { res.reason = "History file does not contain the same component names."; return res; }
+    trainStu = state.hist.students.map(s => ({ marks: C.map(c => s.marks[hm[idxOf(c)].idx]), map: true }));
+    const remap = s => { const arr = []; C.forEach(c => arr[c.idx] = s.marks[C.indexOf(c)]); return { marks: arr }; };
+    trainStu = state.hist.students.map(s => { const arr = []; C.forEach(c => { arr[c.idx] = s.marks[hm[idxOf(c)].idx]; }); return { marks: arr }; });
+    mode = "history";
+  } else { trainStu = o.S; mode = "retrospective"; }
+  const rows = trainStu.map(s => ({ x: feat(s, E), y: later(s) })).filter(r => !isNaN(r.y));
+  if (rows.length < Math.max(8, E.length + 3)) { res.reason = "Not enough complete rows to train (" + rows.length + "). Load a history cohort file or complete the later marks."; return res; }
+  const X = impute(rows.map(r => r.x), rows.map(r => r.x)), y = rows.map(r => r.y);
+  // leave-one-out on the training rows
+  const loo = X.map((_, i) => { const Xt = X.filter((_, k) => k !== i), yt = y.filter((_, k) => k !== i); return ridgePred(ridgeFit(Xt, yt, lam), X[i]); });
+  const err = y.map((v, i) => v - loo[i]), rmse = Math.sqrt(mean(err.map(e => e * e))), mae = mean(err.map(Math.abs));
+  const baseErr = y.map((v, i) => v - mean(y.filter((_, k) => k !== i))), rmse0 = Math.sqrt(mean(baseErr.map(e => e * e)));
+  const final = ridgeFit(X, y, lam);
+  // forecast for the current cohort
+  const fc = o.S.map(s => {
+    const x = feat(s, E); if (x.some(isNaN)) return NaN;
+    const yl = ridgePred(final, x);
+    const em = sum(E.map(c => s.marks[c.idx]));
+    return (em + Math.min(100, Math.max(0, yl)) / 100 * laterMax) / (earlyMax + laterMax) * 100;
+  });
+  const actual = o.S.map(s => { const l = later(s); const x = feat(s, E); return (isNaN(l) || x.some(isNaN)) ? NaN : (sum(E.map(c => s.marks[c.idx])) + l / 100 * laterMax) / (earlyMax + laterMax) * 100; });
+  // scatter points (retrospective: LOO forecast vs actual final CA%)
+  let pts = [];
+  if (mode === "retrospective") {
+    let k = 0;
+    o.S.forEach((s, i) => { const l = later(s); if (isNaN(l)) return; const ems = sum(E.map(c => s.marks[c.idx])); const lf = Math.min(100, Math.max(0, loo[k])); pts.push({ i, a: actual[i], f: (ems + lf / 100 * laterMax) / (earlyMax + laterMax) * 100 }); k++; });
+    // use LOO forecasts for the displayed cohort so nobody is forecast by a model that saw their own later marks
+    pts.forEach(p => { fc[p.i] = p.f; });
+  }
+  Object.assign(res, { ok: true, mode, n: rows.length, rmse, mae, rmse0, skill: 1 - rmse / rmse0, coef: E.map((c, j) => ({ name: c.name, w: final.w[j] / final.sg[j] * 1 })), fc, actual, pts, laterMax, earlyMax });
+  return res;
+}
+
+function signals(o, i) {
+  const s = [], z = [];
+  o.C.forEach((c, j) => {
+    const v = o.P[i][j], cm = o.comp[j];
+    if (isNaN(v)) s.push(`missing ${c.name}`);
+    else if (v === 0) s.push(`zero in ${c.name}`);
+    else if (v < 50 && cm.sd > 0 && (v - cm.mean) / cm.sd <= -1.5) s.push(`${c.name} ${fmt(v, 0)}% (class ${fmt(cm.mean, 0)}%)`);
+  });
+  return s;
+}
+function statusOf(o, i) {
+  const T = o.T, now = o.caSoFar[i], shown = o.model.ok ? o.model.fc[i] : NaN, sg = signals(o, i);
+  const fc = (o.model.ok && o.model.skill > 0.05) ? shown : NaN;   // the forecast drives flags only when it beats the baseline
+  let level = "ok", why = [];
+  if (!isNaN(now) && now < T) { level = "risk"; why.push(`CA so far ${fmt(now)}% < ${T}%`); }
+  if (!isNaN(fc) && fc < T) { level = "risk"; why.push(`forecast ${fmt(fc)}% < ${T}%`); }
+  if (level !== "risk" && (sg.length || (!isNaN(fc) && fc < T + 5))) { level = "watch"; if (!isNaN(fc) && fc < T + 5) why.push(`forecast ${fmt(fc)}% close to target`); }
+  sg.forEach(x => why.push(x));
+  return { level, why, now, fc: shown, sg, rank: level === "risk" ? 2 : level === "watch" ? 1 : 0 };
+}
+
+/* ---------- draft feedback (rule-based, lecturer must edit) ---------- */
+const TIPS = [[/quiz/i, "revise each week's notes"], [/lab|practical/i, "repeat the lab tasks and keep to the report format"], [/report|essay|assignment|case/i, "follow every rubric criterion and cite evidence"], [/mid|test|exam/i, "practise past questions under time"], [/project/i, "agree a plan and review milestones early"]];
+function feedback(o, i) {
+  const rows = o.C.map((c, j) => ({ c, v: o.P[i][j], m: o.comp[j].mean })).filter(r => !isNaN(r.v));
+  if (rows.length < 2) return "Not enough marks yet to comment.";
+  const best = rows.reduce((a, b) => (b.v - b.m) > (a.v - a.m) ? b : a), worst = rows.reduce((a, b) => (b.v - b.m) < (a.v - a.m) ? b : a);
+  const tip = (TIPS.find(t => t[0].test(worst.c.name)) || [0, "ask for feedback and plan targeted practice"])[1];
+  const head = best.v >= o.T && (best.v - best.m) > 0 ? `Strong result in ${best.c.name} (${fmt(best.v, 0)}%).` : (best.v - best.m) > 0 ? `Best result so far: ${best.c.name} (${fmt(best.v, 0)}%).` : `No component is above the class mean yet.`;
+  return `${head} To improve ${worst.c.name} (${fmt(worst.v, 0)}%, class ${fmt(worst.m, 0)}%), ${tip}.`;
+}
+
+/* ---------- charts ---------- */
+const tipAttr = t => ` data-tip="${esc(t)}"`;
+function histogram(vals, T) {
+  const W = 520, H = 220, m = { l: 34, r: 10, t: 10, b: 30 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const lo = Math.max(0, Math.floor(Math.min(...vals) / 5) * 5 - 5), hi = Math.min(100, Math.ceil(Math.max(...vals) / 5) * 5 + 5), step = 5, nb = Math.max(1, Math.round((hi - lo) / step));
+  const bins = Array(nb).fill(0); vals.forEach(v => { let k = Math.min(nb - 1, Math.max(0, Math.floor((v - lo) / step))); bins[k]++; });
+  const mx = Math.max(...bins, 1), bw = pw / nb, y = c => m.t + ph - c / mx * ph;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Histogram of CA percentage">`;
+  const tickN = Math.min(mx, 5); for (let t = 0; t <= tickN; t++) { const c = Math.round(mx * t / tickN); s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(c)}" y2="${y(c)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${y(c) + 4}" text-anchor="end" class="mu">${c}</text>`; }
+  bins.forEach((c, k) => { if (!c) return; const x = m.l + k * bw + 1, h = ph * c / mx, a = lo + k * step; s += `<rect x="${x}" y="${y(c)}" width="${Math.max(2, bw - 2)}" height="${h}" rx="3" fill="var(--s1)"${tipAttr(`${a}–${a + step}%: ${c} student${c > 1 ? "s" : ""}`)} style="cursor:default"/>`; });
+  s += `<line x1="${m.l}" x2="${W - m.r}" y1="${m.t + ph}" y2="${m.t + ph}" stroke="var(--axis)"/>`;
+  for (let a = lo; a <= hi; a += 10) s += `<text x="${m.l + (a - lo) / step * bw}" y="${H - 10}" text-anchor="middle" class="mu">${a}</text>`;
+  if (T >= lo && T <= hi) { const x = m.l + (T - lo) / step * bw; s += `<line x1="${x}" x2="${x}" y1="${m.t}" y2="${m.t + ph}" stroke="var(--ink)" stroke-dasharray="4 3"/><text x="${x + 4}" y="${m.t + 10}" class="t1">Target ${T}%</text>`; }
+  return s + `</svg>`;
+}
+function hbars(items, T, unit = "%") {
+  const rowH = 30, W = 520, lw = 150, rw = 46, H = items.length * rowH + 22, pw = W - lw - rw;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Horizontal bar chart">`;
+  items.forEach((it, i) => {
+    const y = i * rowH + 4, w = Math.max(0, Math.min(100, it.v)) / 100 * pw;
+    s += `<text x="${lw - 8}" y="${y + 15}" text-anchor="end" class="t1">${esc(it.label.length > 24 ? it.label.slice(0, 23) + "…" : it.label)}</text>`;
+    s += `<rect x="${lw}" y="${y + 4}" width="${pw}" height="14" rx="3" fill="var(--grid)" opacity=".6"/>`;
+    s += `<rect x="${lw}" y="${y + 4}" width="${w}" height="14" rx="3" fill="var(--s1)"${tipAttr(it.tip || `${it.label}: ${fmt(it.v)}${unit}`)} style="cursor:default"/>`;
+    s += `<text x="${lw + pw + 6}" y="${y + 16}" class="t1">${fmt(it.v)}${unit}</text>`;
+  });
+  const tx = lw + T / 100 * pw; s += `<line x1="${tx}" x2="${tx}" y1="0" y2="${items.length * rowH + 4}" stroke="var(--ink)" stroke-dasharray="4 3"/><text x="${tx}" y="${H - 6}" text-anchor="middle" class="t1">Target ${T}%</text>`;
+  return s + `</svg>`;
+}
+function scatter(pts, T) {
+  const W = 400, H = 330, m = { l: 44, r: 12, t: 12, b: 40 };
+  const all = pts.flatMap(p => [p.a, p.f]), lo = Math.floor(Math.min(...all, T) / 5) * 5 - 5, hi = Math.min(100, Math.ceil(Math.max(...all) / 5) * 5 + 5);
+  const X = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r), Y = v => H - m.b - (v - lo) / (hi - lo) * (H - m.t - m.b);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Forecast versus actual final CA percentage">`;
+  for (let v = Math.ceil(lo / 10) * 10; v <= hi; v += 10) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--grid)"/><text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end" class="mu">${v}</text><text x="${X(v)}" y="${H - m.b + 16}" text-anchor="middle" class="mu">${v}</text>`;
+  s += `<line x1="${X(lo)}" y1="${Y(lo)}" x2="${X(hi)}" y2="${Y(hi)}" stroke="var(--axis)" stroke-dasharray="4 3"/>`;
+  if (T >= lo && T <= hi) s += `<line x1="${X(T)}" x2="${X(T)}" y1="${m.t}" y2="${H - m.b}" stroke="var(--ink)" stroke-dasharray="2 3" opacity=".5"/><line x1="${m.l}" x2="${W - m.r}" y1="${Y(T)}" y2="${Y(T)}" stroke="var(--ink)" stroke-dasharray="2 3" opacity=".5"/>`;
+  pts.forEach(p => { s += `<circle cx="${X(p.a)}" cy="${Y(p.f)}" r="5" fill="var(--s1)" stroke="var(--surface)" stroke-width="2"${tipAttr(`${idShow(state.students[p.i].id)}: actual ${fmt(p.a)}%, forecast ${fmt(p.f)}%`)}/>`; });
+  s += `<text x="${(W + m.l) / 2}" y="${H - 6}" text-anchor="middle">Actual final CA %</text><text transform="translate(12 ${(H - m.b) / 2}) rotate(-90)" text-anchor="middle">Forecast from checkpoint marks %</text>`;
+  return s + `</svg>`;
+}
+function studentBars(o, i) {
+  const rows = o.C.map((c, j) => ({ label: c.name, v: o.P[i][j], m: o.comp[j].mean })), rowH = 30, W = 520, lw = 150, pw = 320, H = rows.length * rowH + 14;
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Student marks against class mean">`;
+  rows.forEach((r, k) => {
+    const y = k * rowH + 4;
+    s += `<text x="${lw - 8}" y="${y + 15}" text-anchor="end" class="t1">${esc(r.label)}</text><rect x="${lw}" y="${y + 4}" width="${pw}" height="14" rx="3" fill="var(--grid)" opacity=".6"/>`;
+    if (!isNaN(r.v)) s += `<rect x="${lw}" y="${y + 4}" width="${r.v / 100 * pw}" height="14" rx="3" fill="var(--s1)"${tipAttr(`${r.label}: ${fmt(r.v)}% (class mean ${fmt(r.m)}%)`)}/>`;
+    s += `<line x1="${lw + r.m / 100 * pw}" x2="${lw + r.m / 100 * pw}" y1="${y}" y2="${y + 22}" stroke="var(--ink)" stroke-width="2"/><text x="${lw + pw + 8}" y="${y + 16}" class="t1">${isNaN(r.v) ? "–" : fmt(r.v, 0) + "%"}</text>`;
+  });
+  return s + `</svg>`;
+}
+
+/* ---------- view helpers ---------- */
+const idShow = id => state.mask ? (id.length > 3 ? id[0] + "••••" + id.slice(-2) : "•••") : id;
+const chip = lvl => lvl === "risk" ? `<span class="chip risk"><i>▲</i>Support</span>` : lvl === "watch" ? `<span class="chip watch"><i>●</i>Watch</span>` : `<span class="chip ok"><i>✓</i>On track</span>`;
+function table(headers, rows, cls = "") { return `<div class="tw"><table class="${cls}"><thead><tr>${headers.map(h => `<th class="${h.num ? "num" : ""}">${esc(h.t || h)}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, k) => `<td class="${headers[k] && headers[k].num ? "num" : ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`; }
+function card(id, title, sub, chartHTML, tableHTML) {
+  const v = state.view[id] || "chart";
+  return `<div class="card" data-card="${id}"><div class="head"><div><h2>${esc(title)}</h2><p class="sub">${sub}</p></div><div class="seg noprint" role="group" aria-label="View"><button data-view="${id}:chart" aria-pressed="${v === "chart"}">Chart</button><button data-view="${id}:table" aria-pressed="${v === "table"}">Table</button></div></div><div class="${v === "chart" ? "" : "hide"}">${chartHTML}</div><div class="${v === "table" ? "" : "hide"}">${tableHTML}</div></div>`;
+}
+const tile = (v, l, n = "") => `<div class="card tile"><div class="v">${v}</div><div class="l">${l}</div><div class="n">${n}</div></div>`;
+
+/* ---------- render ---------- */
+const TABS = [["overview", "Overview"], ["attain", "Attainment"], ["quality", "Assessment quality"], ["warn", "Early warning"], ["students", "Students"], ["setup", "Data and setup"]];
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map(([k, l]) => `<button role="tab" aria-selected="${state.tab === k}" data-tab="${k}">${l}</button>`).join("");
+  TABS.forEach(([k]) => $("#t-" + k).classList.toggle("on", state.tab === k));
+}
+function render() {
+  renderTabs();
+  if (!state.students.length) {
+    ["overview", "attain", "quality", "warn", "students"].forEach(k => $("#t-" + k).innerHTML = `<div class="card"><h2>No data loaded</h2><p class="sub">Open a gradebook CSV from your learning management system (first column = student ID, then one column per assessment), or load the synthetic demo cohort to see every view.</p></div>`);
+    renderSetup(); return;
+  }
+  const o = (state.o = compute());
+  $("#course").textContent = state.title + (state.synthetic ? " · synthetic data" : "");
+  renderOverview(o); renderAttain(o); renderQuality(o); renderWarn(o); renderStudents(o); renderSetup();
+}
+function renderOverview(o) {
+  const T = o.T, risk = o.status.filter(s => s.level === "risk").length, watch = o.status.filter(s => s.level === "watch").length;
+  const cm = o.comp.map(x => ({ label: x.c.name, v: x.mean, tip: `${x.c.name}: mean ${fmt(x.mean)}%, ${fmt(x.pctT, 0)}% of students at or above ${T}%` }));
+  const tbl = table(["Component", "Weight", { t: "Mean %", num: 1 }, { t: "≥ target %", num: 1 }, { t: "SD", num: 1 }], o.comp.map(x => [esc(x.c.name), x.c.max, fmt(x.mean), fmt(x.pctT, 0), fmt(x.sd)]));
+  const ht = table(["Band", { t: "Students", num: 1 }], histRows(o.caSoFar.filter(v => !isNaN(v))));
+  $("#t-overview").innerHTML = `<div class="grid g4">${tile(o.n, "students", `${o.C.length} assessments, total weight ${o.totalMax}`)}${tile(fmt(o.mean) + "%", "mean CA so far", `median ${fmt(o.median)}%, SD ${fmt(o.sd)}`)}${tile(fmt(o.aboveT / o.n * 100, 0) + "%", `at or above ${T}%`, `${o.aboveT} of ${o.n} students`)}${tile(risk + " / " + watch, "support / watch", "from the Early warning rules")}</div>
+  <div class="grid g2" style="margin-top:14px">${card("hist", "Distribution of CA so far", "Number of students per 5-point band; dashed line is the target.", histogram(o.caSoFar.filter(v => !isNaN(v)), T), ht)}${card("comp", "Mean by component", "Share of the available marks earned, against the target.", hbars(cm, T), tbl)}</div>`;
+}
+function histRows(vals) { const lo = Math.floor(Math.min(...vals) / 5) * 5; const hi = Math.ceil(Math.max(...vals) / 5) * 5; const r = []; for (let a = lo; a < hi; a += 5) r.push([`${a}–${a + 5}%`, vals.filter(v => v >= a && (v < a + 5 || (a + 5 >= hi && v <= hi))).length]); return r; }
+function renderAttain(o) {
+  const T = o.T, mk = (arr, k) => arr.map(x => ({ label: x.g, v: x.mean, tip: `${x.g}: mean ${fmt(x.mean)}% across ${x.comps.join(", ")}; ${fmt(x.pctT, 0)}% of students at or above ${T}%` }));
+  const tb = arr => table([k => k, "Assessments", { t: "Weight", num: 1 }, { t: "Mean %", num: 1 }, { t: "Students ≥ target %", num: 1 }, "Status"].map((h, i) => i === 0 ? "Outcome" : h), arr.map(x => [esc(x.g), esc(x.comps.join(", ")), x.weight, fmt(x.mean), fmt(x.pctT, 0), x.mean >= T ? `<span class="chip ok"><i>✓</i>Met</span>` : `<span class="chip risk"><i>▲</i>Below target</span>`]));
+  const none = `<p class="sub">No CLO/PLO tags yet. Add them in Data and setup.</p>`;
+  $("#t-attain").innerHTML = `<div class="note">Attainment = share of the marks earned on the assessments tagged with that outcome, averaged over students. The second figure is the share of students at or above the target. Target ${T}% is set in Data and setup.</div><div class="grid g2" style="margin-top:14px">${o.clo.length ? card("clo", "Course outcome attainment", "Course-level learning outcomes (tags such as CLO1).", hbars(mk(o.clo), T), tb(o.clo)) : `<div class="card"><h2>Course outcome attainment</h2>${none}</div>`}${o.plo.length ? card("plo", "Programme outcome attainment", "Programme-level learning outcomes (tags such as PLO1).", hbars(mk(o.plo), T), tb(o.plo)) : `<div class="card"><h2>Programme outcome attainment</h2>${none}</div>`}</div>`;
+}
+function renderQuality(o) {
+  const T = o.T;
+  const rows = o.comp.map(x => [esc(x.c.name), fmt(x.mean), fmt(x.sd), `<div class="meter" title="share of students at or above target"><span style="width:${isNaN(x.pctT) ? 0 : x.pctT}%"></span></div>`, fmt(x.r, 2), fmt(x.D, 2), x.missing + x.zeros || "–"]);
+  $("#t-quality").innerHTML = `<div class="card"><h2>Assessment quality</h2><p class="sub">Does each assessment separate students, and does it agree with the rest? Corrected item-total r = correlation of the component with the mean of the others. D = mean of the top 27% minus the bottom 27% (ranked by CA), as a fraction.</p>${table(["Component", { t: "Mean %", num: 1 }, { t: "SD", num: 1 }, "At or above target", { t: "Corrected r", num: 1 }, { t: "D", num: 1 }, { t: "Missing / zero", num: 1 }], rows)}</div>
+  <div class="card" style="margin-top:14px"><h2>Draft improvement notes</h2><p class="sub">Generated from the thresholds above. Review before they go into a quality-improvement report.</p><ul class="flags">${o.flags.map(f => `<li>${esc(f)}</li>`).join("")}</ul></div>`;
+}
+function renderWarn(o) {
+  const M = o.model, T = o.T;
+  const modelCard = !M.ok ? `<div class="card"><h2>Forecast model</h2><p class="sub">${esc(M.reason)}</p><p class="sub">The support and watch flags below still work: they use the marks so far and simple rules.</p></div>` : (() => {
+    const good = M.skill > 0.05, verdict = good ? `<span class="chip ok"><i>✓</i>Better than the class average</span>` : `<span class="chip watch"><i>●</i>No clear skill: use the rules, not the forecast</span>`;
+    const cf = M.coef.map(c => ({ label: c.name, w: c.w }));
+    const mx = Math.max(...cf.map(c => Math.abs(c.w)), 1e-6);
+    const cbars = cf.map(c => `<tr><td>${esc(c.label)}</td><td class="num">${c.w >= 0 ? "+" : ""}${fmt(c.w, 2)}</td><td><div class="meter"><span style="width:${Math.abs(c.w) / mx * 100}%;background:${c.w >= 0 ? "var(--s1)" : "var(--s2)"}"></span></div></td></tr>`).join("");
+    return `<div class="card"><h2>Forecast model</h2><p class="sub">Ridge regression: marks at the checkpoint (${esc(M.E.map(c => c.name).join(", "))}) predict the later assessments (${esc(M.L.map(c => c.name).join(", "))}). ${M.mode === "history" ? "Trained on the history cohort." : "Retrospective: each student is forecast by a model trained without them (leave-one-out)."}</p>
+    <div class="grid g4" style="margin-bottom:10px">${tile(fmt(M.mae), "MAE, points of later %", `trained on ${M.n} students`)}${tile(fmt(M.rmse), "RMSE", `class-average baseline ${fmt(M.rmse0)}`)}${tile(fmt(M.skill * 100, 0) + "%", "skill vs baseline", "1 − RMSE / baseline RMSE")}</div>
+    <p>${verdict}</p><div class="tw"><table><thead><tr><th>Feature</th><th class="num">Weight (later-% points per +1 point)</th><th></th></tr></thead><tbody>${cbars}</tbody></table></div></div>`;
+  })();
+  const scat = M.ok && M.pts.length ? card("sc", "Forecast vs actual final CA", "Each dot is a student. Dashed diagonal = perfect forecast; dotted lines mark the target.", scatter(M.pts, T), table(["Student", { t: "Actual %", num: 1 }, { t: "Forecast %", num: 1 }], M.pts.map(p => [esc(idShow(o.S[p.i].id)), fmt(p.a), fmt(p.f)]))) : "";
+  const list = o.S.map((s, i) => ({ s, i, st: o.status[i] })).filter(r => r.st.level !== "ok").sort((a, b) => b.st.rank - a.st.rank || (a.st.now - b.st.now));
+  const wl = table(["Student", { t: "CA so far %", num: 1 }, { t: "Forecast %", num: 1 }, "Status", "Why", "Draft feedback"], list.map(r => [esc(idShow(r.s.id)), fmt(r.st.now), fmt(r.st.fc), chip(r.st.level), esc(r.st.why.join("; ")), esc(feedback(o, r.i))]));
+  $("#t-warn").innerHTML = `<div class="grid g2">${modelCard}${scat}</div><div class="card" style="margin-top:14px"><div class="head"><div><h2>Students to support or watch (${list.length})</h2><p class="sub">Support = below target now or, when the model shows skill, forecast below target. Watch = a component below half marks and at least 1.5 SD under the class mean, a zero or missing mark, or (with skill) a forecast within 5 points of the target. The forecast is not used in flags while the model shows no clear skill.</p></div><button class="noprint" id="btnCsv">Download list (CSV)</button></div>${list.length ? wl : "<p class='sub'>No student is flagged.</p>"}</div>`;
+}
+function renderStudents(o) {
+  const q = state.q.toLowerCase();
+  let rows = o.S.map((s, i) => ({ s, i, st: o.status[i] })).filter(r => !q || r.s.id.toLowerCase().includes(q));
+  const key = state.sortKey, dir = state.sortDir;
+  const val = r => key === "id" ? r.s.id : key === "now" ? r.st.now : key === "fc" ? (isNaN(r.st.fc) ? -1 : r.st.fc) : key === "risk" ? r.st.rank * 1000 - r.st.now : (isNaN(o.P[r.i][+key]) ? -1 : o.P[r.i][+key]);
+  rows.sort((a, b) => { const x = val(a), y = val(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+  const th = (k, t, num) => `<th class="s ${num ? "num" : ""}" data-sort="${k}">${esc(t)}${state.sortKey === k ? (dir > 0 ? " ▲" : " ▼") : ""}</th>`;
+  const head = th("id", "Student") + o.C.map((c, j) => th(j, c.name.length > 11 ? c.name.slice(0, 10) + "…" : c.name, 1)).join("") + th("now", "CA", 1) + th("fc", "Forecast", 1) + th("risk", "Status");
+  const body = rows.map(r => `<tr data-row="${r.i}" style="cursor:pointer"><td>${esc(idShow(r.s.id))}</td>${o.C.map((c, j) => `<td class="num">${fmt(o.P[r.i][j], 0)}</td>`).join("")}<td class="num">${fmt(r.st.now)}</td><td class="num">${fmt(r.st.fc)}</td><td>${chip(r.st.level)}</td></tr>`).join("");
+  let detail = `<p class="sub">Select a student row to see the profile and a draft feedback comment.</p>`;
+  if (state.selected >= 0 && o.S[state.selected]) {
+    const i = state.selected, st = o.status[i];
+    detail = `<h2>${esc(idShow(o.S[i].id))} ${chip(st.level)}</h2><p class="sub">CA so far ${fmt(st.now)}%${isNaN(st.fc) ? "" : ", forecast " + fmt(st.fc) + "%"}. Bar = student, black tick = class mean.</p>${studentBars(o, i)}<p style="margin:10px 0 4px"><b>Draft feedback</b> <span class="sub">(edit before use)</span></p><textarea id="fb" rows="3" style="width:100%;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:8px">${esc(feedback(o, i))}</textarea><p class="sub">${esc(st.why.join("; ") || "No flags.")}</p>`;
+  }
+  $("#t-students").innerHTML = `<div class="grid g2" style="grid-template-columns:minmax(0,2.2fr) minmax(280px,1fr)"><div class="card"><div class="head"><div><h2>All students</h2><p class="sub">Component columns are % of the maximum mark; CA and Forecast are % of the total weight. Click a column to sort. IDs are ${state.mask ? "masked" : "shown"}.</p></div><input type="search" id="q" placeholder="Search ID" value="${esc(state.q)}" class="noprint"></div><div class="tw" style="max-height:560px;overflow:auto"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div></div><div class="card" id="detail">${detail}</div></div>`;
+}
+function renderSetup() {
+  const comps = state.comps;
+  const rows = comps.map(c => `<tr><td><input type="checkbox" data-c="${c.idx}" data-f="on" ${c.on ? "checked" : ""} aria-label="Include ${esc(c.name)}"></td><td><input type="text" data-c="${c.idx}" data-f="name" value="${esc(c.name)}"></td><td><input type="number" min="0.5" step="0.5" data-c="${c.idx}" data-f="max" value="${c.max}"></td><td><input class="sm" type="text" data-c="${c.idx}" data-f="clo" value="${esc(c.clo)}" placeholder="CLO1"></td><td><input class="sm" type="text" data-c="${c.idx}" data-f="plo" value="${esc(c.plo)}" placeholder="PLO1"></td><td><input type="checkbox" data-c="${c.idx}" data-f="early" ${c.early ? "checked" : ""} aria-label="Known at checkpoint: ${esc(c.name)}"></td></tr>`).join("");
+  $("#t-setup").innerHTML = `<div class="card"><h2>Data and setup</h2><p class="sub">${state.students.length ? `${esc(state.title)} · ${state.students.length} students` : "No data loaded."} Confirm the maximum mark, outcome tags and checkpoint for each column; everything recomputes as you edit.</p>
+  <div class="tools" style="margin-bottom:10px"><label class="chk">Target % <input type="number" id="target" min="1" max="100" value="${state.target}" style="width:70px"></label><button id="btnHist">Load history cohort (optional)</button><input type="file" id="histFile" accept=".csv,text/csv,.txt" class="hide"><span class="sub">${state.hist ? "History loaded: " + state.hist.students.length + " students" : "A history CSV from an earlier run of the same course lets the model forecast mid-semester."}</span></div>
+  ${comps.length ? `<div class="tw setup"><table><thead><tr><th>Include</th><th>Assessment</th><th>Max mark (weight)</th><th>Course outcome</th><th>Programme outcome</th><th>Known at checkpoint</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}</div>
+  <div class="card" style="margin-top:14px"><h2>CSV format</h2><p class="sub">First column = student ID (or a column named ID, Matric, No Matrik). Every other numeric column is an assessment. Marks are raw marks out of the maximum you set above. Columns named name, e-mail, total, grade are ignored. Header text such as <code>Lab report (PLO3 CLO3)</code> fills the tags automatically; tags are free text, so any outcome naming works. Use "Sample CSV" to download an example.</p></div>`;
+}
+
+/* ---------- events ---------- */
+function setErr(msg) { const n = $("#privacy"); n.innerHTML = `<b>${msg ? "Could not read the file:" : "Privacy:"}</b> ${esc(msg || "the file is read by this page only; nothing is uploaded or stored. Use the demo cohort (synthetic) for screenshots and videos. Student IDs are masked by default.")}`; }
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-tab],[data-view],[data-sort],[data-row],#btnLoad,#btnDemo,#btnSample,#btnTheme,#btnCsv,#btnHist");
+  if (!t) return;
+  if (t.dataset.tab) { state.tab = t.dataset.tab; render(); }
+  else if (t.dataset.view) { const [id, v] = t.dataset.view.split(":"); state.view[id] = v; render(); }
+  else if (t.dataset.sort) { const k = t.dataset.sort; state.sortDir = state.sortKey === k ? -state.sortDir : (k === "id" ? 1 : -1); state.sortKey = k; render(); }
+  else if (t.dataset.row !== undefined) { state.selected = +t.dataset.row; render(); }
+  else if (t.id === "btnLoad") $("#file").click();
+  else if (t.id === "btnHist") $("#histFile").click();
+  else if (t.id === "btnDemo") { makeDemo(); setErr(""); state.tab = "overview"; render(); }
+  else if (t.id === "btnSample") { makeDemo(); const csv = ["Student ID," + state.comps.map(c => `${c.name} (${c.plo} ${c.clo})`).join(",")].concat(state.students.map(s => s.id + "," + s.marks.map(v => isNaN(v) ? "" : v).join(","))).join("\n"); download("outcomelens-sample.csv", csv, "text/csv"); render(); }
+  else if (t.id === "btnTheme") { const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); document.documentElement.dataset.theme = cur === "dark" ? "light" : "dark"; }
+  else if (t.id === "btnCsv") exportWarn();
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "file" && t.files[0]) readFile(t.files[0], txt => { try { ingest(txt, t.files[0].name.replace(/\.[^.]+$/, "")); state.synthetic = false; setErr(""); state.tab = "overview"; render(); } catch (err) { setErr(err.message); } });
+  else if (t.id === "histFile" && t.files[0]) readFile(t.files[0], txt => { try { const keep = { s: state.students, c: state.comps, t: state.title }; ingest(txt, "history"); const h = { students: state.students, comps: state.comps }; state.students = keep.s; state.comps = keep.c; state.title = keep.t; state.hist = h; setErr(""); render(); } catch (err) { setErr(err.message); } });
+  else if (t.id === "mask") { state.mask = t.checked; render(); }
+  else if (t.id === "target") { state.target = Math.min(100, Math.max(1, +t.value || 60)); render(); }
+  else if (t.dataset && t.dataset.c !== undefined) {
+    const c = state.comps[+t.dataset.c], f = t.dataset.f;
+    c[f] = (f === "on" || f === "early") ? t.checked : (f === "max" ? Math.max(0.5, +t.value || c.max) : t.value.trim());
+    render();
+  }
+});
+document.addEventListener("input", e => { if (e.target.id === "q") { state.q = e.target.value; const pos = e.target.selectionStart; renderStudents(state.o); const q = $("#q"); q.focus(); q.setSelectionRange(pos, pos); } });
+function readFile(file, cb) { const r = new FileReader(); r.onload = () => cb(String(r.result)); r.readAsText(file); }
+function download(name, text, type) { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
+function exportWarn() {
+  const o = state.o, q = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const lines = [["Student", "CA so far %", "Forecast %", "Status", "Why", "Draft feedback"].map(q).join(",")];
+  o.S.forEach((s, i) => { const st = o.status[i]; if (st.level !== "ok") lines.push([state.mask ? idShow(s.id) : s.id, fmt(st.now), fmt(st.fc), st.level, st.why.join("; "), feedback(o, i)].map(q).join(",")); });
+  download("outcomelens-support-list.csv", lines.join("\n"), "text/csv");
+}
+/* tooltip */
+const tip = $("#tip");
+document.addEventListener("mouseover", e => { const t = e.target.closest("[data-tip]"); if (t) { tip.textContent = t.dataset.tip; tip.style.display = "block"; } });
+document.addEventListener("mousemove", e => { if (tip.style.display === "block") { tip.style.left = Math.min(innerWidth - 270, e.clientX + 12) + "px"; tip.style.top = (e.clientY + 14) + "px"; } });
+document.addEventListener("mouseout", e => { if (e.target.closest("[data-tip]")) tip.style.display = "none"; });
+
+/* optional URL switches: ?demo&tab=warn&dark&select=7  (handy for demos and screenshots) */
+const qp = new URLSearchParams(location.search);
+if (qp.has("demo")) makeDemo();
+if (qp.get("tab") && TABS.some(t => t[0] === qp.get("tab"))) state.tab = qp.get("tab");
+if (qp.has("dark")) document.documentElement.dataset.theme = "dark";
+if (qp.has("light")) document.documentElement.dataset.theme = "light";
+if (qp.get("select")) state.selected = +qp.get("select");
+render();
+</script>
+</body>
+</html>
